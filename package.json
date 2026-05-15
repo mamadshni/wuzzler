@@ -1,0 +1,28 @@
+{
+  "name": "wuzzler",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.tsx",
+    "build:wc": "esbuild public/components/x-combobox.ts --bundle --format=esm --outfile=public/components/x-combobox.js",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@effect/platform": "^0.96.1",
+    "@effect/platform-node": "^0.106.0",
+    "effect": "^3.21.2",
+    "htmx-tsx": "0.0.48",
+    "tsx-to-html": "0.0.31"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.15",
+    "@types/node": "^25.8.0",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.28.0",
+    "tsx": "^4.22.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  }
+}

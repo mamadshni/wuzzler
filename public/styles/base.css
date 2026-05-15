@@ -1,0 +1,38 @@
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  :where(body) {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: system-ui, sans-serif;
+    line-height: 1.5;
+  }
+
+  :where(main) {
+    padding: var(--space-m);
+  }
+
+  :where(article) {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: var(--space-m);
+  }
+
+  :where(article > header) {
+    margin-block-end: var(--space-s);
+  }
+
+  :where(article > footer) {
+    margin-block-start: var(--space-s);
+  }
+
+  :focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+}

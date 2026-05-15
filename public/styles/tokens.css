@@ -1,0 +1,21 @@
+@layer tokens, base, variants;
+
+@layer tokens {
+  :root {
+    --color-bg: #ffffff;
+    --color-fg: #111111;
+    --color-border: #cccccc;
+    --space-s: 0.5rem;
+    --space-m: 1rem;
+    --space-l: 2rem;
+    --radius: 0.25rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-bg: #111111;
+      --color-fg: #f0f0f0;
+      --color-border: #444444;
+    }
+  }
+}
