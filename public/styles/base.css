@@ -119,6 +119,34 @@
 		margin-block-start: var(--space-3);
 	}
 
+	/* Section page headers: h2 + actions in a row */
+	section > header {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		margin-block-end: var(--space-4);
+	}
+
+	section > header h2 {
+		flex: 1;
+		margin: 0;
+	}
+
+	section > header form {
+		display: flex;
+		gap: var(--space-2);
+		align-items: center;
+	}
+
+	section > header a {
+		padding: var(--space-2) var(--space-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-sm);
+		text-decoration: none;
+		color: var(--color-fg);
+		white-space: nowrap;
+	}
+
 	/* Pagination nav — less specific, comes before sidebar */
 	:where(nav[aria-label="Pagination"]) ol {
 		display: flex;

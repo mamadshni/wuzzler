@@ -134,14 +134,15 @@ import { playerRoutes } from "./player/routes";
 import { gameRoutes } from "./game/routes";
 import { userRoutes } from "./user/routes";
 
-export const router = HttpRouter.empty.pipe(
-  HttpRouter.mountApp("/", playerRoutes),
-  HttpRouter.mountApp("/", gameRoutes),
-  HttpRouter.mountApp("/", userRoutes),
+export const router = HttpRouter.concatAll(
+  staticRoutes,
+  playerRoutes,
+  gameRoutes,
+  userRoutes,
 );
 ```
 
-Each feature's router declares its own absolute paths (`/players`, `/games`). They're all mounted at `/` so URLs stay flat and RESTful.
+Each feature's router declares its own absolute paths (`/players`, `/games`). Use `HttpRouter.concatAll` to merge them — **do not use `mountApp("/", ...)` for multiple routers at the same prefix**, as it does not fall through on 404 and will make all but the first router unreachable.
 
 ## Cross-feature calls
 

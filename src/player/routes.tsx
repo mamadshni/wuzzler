@@ -25,6 +25,14 @@ const ListSearchParams = Schema.Struct({
 });
 
 export const playerRoutes = HttpRouter.empty.pipe(
+	// GET / - redirect to players list
+	HttpRouter.get(
+		"/",
+		HttpServerResponse.empty({ status: 302 }).pipe(
+			HttpServerResponse.setHeader("Location", "/games"),
+		),
+	),
+
 	// GET /players - list with search and pagination
 	HttpRouter.get(
 		"/players",
