@@ -34,7 +34,7 @@ export const Scoreboard = ({ items, page, total, nameOf }: Props) => (
 						<th>Date</th>
 						<th>Mode</th>
 						<th>Players</th>
-						<th>Score</th>
+						<th>Winner</th>
 					</tr>
 				</thead>
 				<tbody>

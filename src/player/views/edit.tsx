@@ -8,6 +8,7 @@ type Props = {
 
 export const EditPlayer = ({ player, error }: Props) => (
 	<form
+		id="player-profile"
 		hx-patch={`/players/${player.id}`}
 		hx-target="#player-profile"
 		hx-swap="outerHTML"

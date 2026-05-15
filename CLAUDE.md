@@ -206,7 +206,8 @@ If you're tempted to add a class for "the button on the scoreboard page", you're
 - **Using `fetch()` in browser code.** Use HTMX attributes. The combobox is the only browser code that does I/O, and even it uses HTMX to seed options.
 - **Reaching for Tailwind / React / a UI kit.** No. See `AGENTS.md`.
 - **Using `class={{foo: true}}` from `tsx-to-html`.** We're classless. Stop.
-- **Storing the winner of a game.** Derived. Compute it.
+- **Storing the winner of a game.** Wait — winner IS now stored directly as `"left" | "right"` on `Game`. Do not add goal counts back.
+- **Checking `HX-Request` directly to detect partial requests.** Use `isPartialRequest(req)` from `shared/routing.ts`. A raw `HX-Request` check is true for both boosted navigation AND fragment swaps, causing the sidebar to vanish on link clicks.
 - **Forgetting `import "./jsx-setup"` in a new entrypoint.** `hx-*` attrs will look like errors.
 
 ## When you finish a change

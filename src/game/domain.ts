@@ -6,11 +6,6 @@ export type PlayerId = string;
 export const GameId = Schema.String.pipe(Schema.brand("GameId"));
 export type GameId = typeof GameId.Type;
 
-export const Goals = Schema.Number.pipe(
-	Schema.int(),
-	Schema.greaterThanOrEqualTo(0),
-);
-
 // 1v1: two distinct players
 export const OneVOne = Schema.Struct({
 	kind: Schema.Literal("1v1"),
@@ -33,17 +28,9 @@ export type GameMode = typeof GameMode.Type;
 export class Game extends Schema.Class<Game>("Game")({
 	id: GameId,
 	mode: GameMode,
-	leftGoals: Goals,
-	rightGoals: Goals,
+	winner: Schema.Literal("left", "right"),
 	playedAt: Schema.String, // ISO date string
 }) {}
-
-// Pure derivations — never stored
-export const winnerSide = (g: Game): "left" | "right" | "draw" => {
-	if (g.leftGoals > g.rightGoals) return "left";
-	if (g.rightGoals > g.leftGoals) return "right";
-	return "draw";
-};
 
 export const participants = (g: Game): ReadonlyArray<string> => {
 	if (g.mode.kind === "1v1") return [g.mode.leftPlayer, g.mode.rightPlayer];
@@ -74,35 +61,13 @@ export const RegisterGameInput = Schema.Struct({
 	leftPlayerB: Schema.optional(Schema.String),
 	rightPlayerA: Schema.optional(Schema.String),
 	rightPlayerB: Schema.optional(Schema.String),
-	leftGoals: Schema.String,
-	rightGoals: Schema.String,
+	winner: Schema.Literal("left", "right"),
 });
 
 export const validateLineup = (
 	input: typeof RegisterGameInput.Type,
-): Effect.Effect<
-	{ mode: GameMode; leftGoals: number; rightGoals: number },
-	InvalidLineup
-> => {
-	return Effect.gen(function* () {
-		const leftGoals = parseInt(input.leftGoals, 10);
-		const rightGoals = parseInt(input.rightGoals, 10);
-		if (
-			Number.isNaN(leftGoals) ||
-			Number.isNaN(rightGoals) ||
-			leftGoals < 0 ||
-			rightGoals < 0
-		) {
-			return yield* new InvalidLineup({
-				reason: "Goals must be non-negative numbers",
-			});
-		}
-		if (leftGoals + rightGoals === 0) {
-			return yield* new InvalidLineup({
-				reason: "At least one goal must be scored",
-			});
-		}
-
+): Effect.Effect<{ mode: GameMode; winner: "left" | "right" }, InvalidLineup> =>
+	Effect.gen(function* () {
 		if (input.kind === "1v1") {
 			const left = input.leftPlayer?.trim();
 			const right = input.rightPlayer?.trim();
@@ -118,8 +83,7 @@ export const validateLineup = (
 			}
 			return {
 				mode: { kind: "1v1", leftPlayer: left, rightPlayer: right },
-				leftGoals,
-				rightGoals,
+				winner: input.winner,
 			};
 		}
 
@@ -146,8 +110,6 @@ export const validateLineup = (
 				rightPlayerA: rA,
 				rightPlayerB: rB,
 			},
-			leftGoals,
-			rightGoals,
+			winner: input.winner,
 		};
 	});
-};

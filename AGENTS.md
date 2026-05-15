@@ -167,8 +167,8 @@ If you cannot clearly justify a Web Component under those rules, write it as an 
 ## Domain rules
 
 - A 1v1 game has exactly two players, distinct. A 2v2 game has exactly four players, all distinct.
-- Goal counts are integers ≥ 0. At least one side must have > 0 goals. Validate in `game/domain.ts`, not in the route.
-- Winner is derived, never stored. Win rate is derived. Services store raw games; aggregates are computed.
+- Games track the **winner** (`"left"` or `"right"`) directly — there are no goal counts. Validate in `game/domain.ts`, not in the route.
+- Win rate is derived. Services store raw games; aggregates are computed.
 
 ## Accessibility
 

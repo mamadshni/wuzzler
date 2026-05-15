@@ -13,6 +13,7 @@ The codebase is organized by **feature (DDD-style)**. Each top-level folder unde
 - **Web Components** — only where the browser needs local state (combobox).
 - **CSS** — classless first. Element + attribute selectors. Tokens via custom properties.
 - **Node + pnpm** — runtime and package manager. `tsx` runs TS/TSX directly; `esbuild` bundles the Web Components.
+- **node:sqlite** — built-in Node.js SQLite (stable since Node 23). No extra package needed.
 
 No React. No Tailwind. No `` html`` `` tagged templates.
 
@@ -24,6 +25,7 @@ No React. No Tailwind. No `` html`` `` tagged templates.
 │   ├── main.tsx                       # Boots the Effect HTTP app
 │   ├── jsx-setup.ts                   # `import "htmx-tsx"` — registers HTMX transformers
 │   ├── router.ts                      # Mounts each feature's routes at its base path
+│   ├── db.ts                          # Db tag + DbLive layer (node:sqlite DatabaseSync)
 │   │
 │   ├── shared/                        # Cross-feature primitives. Imported by everyone.
 │   │   ├── render.ts                  # toHtml + html()/fragment() response helpers
@@ -192,15 +194,20 @@ Each feature's `routes.tsx` mounts the endpoints listed below at the feature's b
 
 ## Storage
 
-No database yet. Each service holds state in a `Ref<Map<…, …>>` inside a `MemoryLive` layer. The service **tag** is what routes import — the layer is implementation detail.
+SQLite via Node's built-in `node:sqlite`. The database file is `./wuzzler.db` (created on first run). Each service's `*Live` layer depends on the shared `Db` tag (a `DatabaseSync` instance) provided by `DbLive` in `src/db.ts`.
 
 ```
-Players (Tag)              ← what routes import
-  └─ MemoryLive   (now)    ← Ref-backed
-  └─ SqlLive      (later)  ← swap here when DB is added; nothing else changes
+Players (Tag)       ← what routes import
+  └─ PlayersLive    ← SQLite-backed, depends on Db
+
+Games (Tag)         ← what routes import
+  └─ GamesLive      ← SQLite-backed, depends on Db
+
+Db (Tag)            ← shared DatabaseSync instance
+  └─ DbLive         ← creates ./wuzzler.db, runs CREATE TABLE IF NOT EXISTS
 ```
 
-When SQL arrives: add a `SqlLive` layer in the same `service.ts`, swap which layer `main.tsx` provides, done. Routes, blocks, and domain code stay untouched. If you find yourself changing a route to add the DB, the service tag was leaky.
+`DbLive` is memoized by Effect — one connection shared between both services. Routes, blocks, and domain code are unaffected by the storage layer.
 
 ## Build / run
 

@@ -17,12 +17,19 @@ export const PlayerProfile = ({ player }: Props) => (
 			<p>Loading games…</p>
 		</section>
 		<footer>
-			<a href={`/players/${player.id}/edit`}>Edit</a>{" "}
+			<button
+				type="button"
+				hx-get={`/players/${player.id}/edit`}
+				hx-target="#player-profile"
+				hx-swap="outerHTML"
+			>
+				Edit
+			</button>
 			<button
 				type="button"
 				hx-delete={`/players/${player.id}`}
-				hx-target="#player-list"
-				hx-swap="outerHTML"
+				hx-target="main"
+				hx-swap="innerHTML"
 				hx-push-url="/players"
 				hx-confirm="Delete this player?"
 			>

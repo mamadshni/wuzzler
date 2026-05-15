@@ -4,10 +4,10 @@ import {
 	HttpServerResponse,
 } from "@effect/platform";
 import { Effect, Schema } from "effect";
-import { Games } from "../game/service"; // TAG only - allowed cross-feature
+import { Games } from "../game/service";
 import { Layout } from "../shared/layout";
 import { fragment, html } from "../shared/render";
-import { respond } from "../shared/routing";
+import { isPartialRequest, respond } from "../shared/routing";
 import { EditPlayerInput, RegisterPlayerInput } from "./domain";
 import { Players } from "./service";
 import { EditPlayer } from "./views/edit";
@@ -16,16 +16,13 @@ import { PlayerProfile } from "./views/profile";
 import { RegisterPlayer } from "./views/register";
 import { SearchResults } from "./views/search-result";
 
-const isHtmx = (req: HttpServerRequest.HttpServerRequest) =>
-	req.headers["hx-request"] === "true";
-
 const ListSearchParams = Schema.Struct({
 	q: Schema.optional(Schema.String),
 	page: Schema.optional(Schema.String),
 });
 
 export const playerRoutes = HttpRouter.empty.pipe(
-	// GET / - redirect to players list
+	// GET / - redirect to games
 	HttpRouter.get(
 		"/",
 		HttpServerResponse.empty({ status: 302 }).pipe(
@@ -44,7 +41,7 @@ export const playerRoutes = HttpRouter.empty.pipe(
 			const page = params.page ? parseInt(params.page, 10) : 1;
 			const players = yield* Players;
 			const result = yield* players.list({ q, page });
-			const isPartial = isHtmx(req);
+			const isPartial = isPartialRequest(req);
 			return respond(
 				isPartial,
 				<PlayerList
@@ -71,9 +68,7 @@ export const playerRoutes = HttpRouter.empty.pipe(
 		"/players/search",
 		Effect.gen(function* () {
 			const params = yield* HttpServerRequest.schemaSearchParams(
-				Schema.Struct({
-					q: Schema.optional(Schema.String),
-				}),
+				Schema.Struct({ q: Schema.optional(Schema.String) }),
 			);
 			const q = params.q ?? "";
 			const players = yield* Players;
@@ -92,7 +87,7 @@ export const playerRoutes = HttpRouter.empty.pipe(
 			const players = yield* Players;
 			yield* players.create({ name: body.name });
 			const result = yield* players.list();
-			const isPartial = isHtmx(req);
+			const isPartial = isPartialRequest(req);
 
 			if (isPartial) {
 				return fragment(
@@ -103,18 +98,17 @@ export const playerRoutes = HttpRouter.empty.pipe(
 						pageSize={result.pageSize}
 					/>,
 				);
-			} else {
-				return html(
-					<Layout title="Players" active="players">
-						<PlayerList
-							items={result.items}
-							page={result.page}
-							total={result.total}
-							pageSize={result.pageSize}
-						/>
-					</Layout>,
-				).pipe(HttpServerResponse.setStatus(303));
 			}
+			return html(
+				<Layout title="Players" active="players">
+					<PlayerList
+						items={result.items}
+						page={result.page}
+						total={result.total}
+						pageSize={result.pageSize}
+					/>
+				</Layout>,
+			).pipe(HttpServerResponse.setStatus(303));
 		}).pipe(
 			Effect.catchTag("DuplicatePlayerName", (e) =>
 				fragment(
@@ -140,7 +134,7 @@ export const playerRoutes = HttpRouter.empty.pipe(
 			const { id } = yield* HttpRouter.params;
 			const players = yield* Players;
 			const player = yield* players.get(id ?? "");
-			const isPartial = isHtmx(req);
+			const isPartial = isPartialRequest(req);
 			return respond(isPartial, <PlayerProfile player={player} />, (body) => (
 				<Layout title={player.name} active="players">
 					{body}
@@ -178,17 +172,16 @@ export const playerRoutes = HttpRouter.empty.pipe(
 				yield* HttpServerRequest.schemaBodyUrlParams(EditPlayerInput);
 			const players = yield* Players;
 			const player = yield* players.update(id ?? "", { name: body.name });
-			const isPartial = isHtmx(req);
+			const isPartial = isPartialRequest(req);
 
 			if (isPartial) {
 				return fragment(<PlayerProfile player={player} />);
-			} else {
-				return html(
-					<Layout title={player.name} active="players">
-						<PlayerProfile player={player} />
-					</Layout>,
-				).pipe(HttpServerResponse.setStatus(303));
 			}
+			return html(
+				<Layout title={player.name} active="players">
+					<PlayerProfile player={player} />
+				</Layout>,
+			).pipe(HttpServerResponse.setStatus(303));
 		}).pipe(
 			Effect.catchTag("PlayerNotFound", () =>
 				HttpServerResponse.empty({ status: 404 }),
@@ -218,7 +211,7 @@ export const playerRoutes = HttpRouter.empty.pipe(
 			const players = yield* Players;
 			yield* players.remove(id ?? "");
 			const result = yield* players.list();
-			const isPartial = isHtmx(req);
+			const isPartial = isPartialRequest(req);
 
 			if (isPartial) {
 				return fragment(
@@ -229,18 +222,17 @@ export const playerRoutes = HttpRouter.empty.pipe(
 						pageSize={result.pageSize}
 					/>,
 				);
-			} else {
-				return html(
-					<Layout title="Players" active="players">
-						<PlayerList
-							items={result.items}
-							page={result.page}
-							total={result.total}
-							pageSize={result.pageSize}
-						/>
-					</Layout>,
-				).pipe(HttpServerResponse.setStatus(303));
 			}
+			return html(
+				<Layout title="Players" active="players">
+					<PlayerList
+						items={result.items}
+						page={result.page}
+						total={result.total}
+						pageSize={result.pageSize}
+					/>
+				</Layout>,
+			).pipe(HttpServerResponse.setStatus(303));
 		}).pipe(
 			Effect.catchTag("PlayerNotFound", () =>
 				HttpServerResponse.empty({ status: 404 }),
@@ -264,18 +256,27 @@ export const playerRoutes = HttpRouter.empty.pipe(
 						<tr>
 							<th>Date</th>
 							<th>Mode</th>
-							<th>Score</th>
+							<th>Winner</th>
 						</tr>
 					</thead>
 					<tbody>
 						{result.items.map((g) => {
 							const date = new Date(g.playedAt).toLocaleDateString();
-							const score = `${g.leftGoals} – ${g.rightGoals}`;
+							const winner =
+								g.mode.kind === "1v1"
+									? g.winner === "left"
+										? g.mode.leftPlayer
+										: g.mode.rightPlayer
+									: g.winner === "left"
+										? "Left team"
+										: "Right team";
 							return (
 								<tr>
 									<td>{date}</td>
 									<td>{g.mode.kind}</td>
-									<td>{score}</td>
+									<td>
+										<strong>{winner}</strong>
+									</td>
 								</tr>
 							);
 						})}

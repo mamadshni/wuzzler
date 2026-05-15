@@ -4,17 +4,14 @@ import {
 	HttpServerResponse,
 } from "@effect/platform";
 import { Effect, Schema } from "effect";
-import { Players } from "../player/service"; // TAG only - allowed cross-feature
+import { Players } from "../player/service";
 import { Layout } from "../shared/layout";
 import { fragment, html } from "../shared/render";
-import { respond } from "../shared/routing";
+import { isPartialRequest, respond } from "../shared/routing";
 import { RegisterGameInput, validateLineup } from "./domain";
 import { Games } from "./service";
 import { Scoreboard } from "./views/list";
 import { RegisterGame } from "./views/register";
-
-const isHtmx = (req: HttpServerRequest.HttpServerRequest) =>
-	req.headers["hx-request"] === "true";
 
 const buildNameOf = (players: ReadonlyArray<{ id: string; name: string }>) => {
 	const map = new Map(players.map((p) => [p.id, p.name]));
@@ -23,7 +20,15 @@ const buildNameOf = (players: ReadonlyArray<{ id: string; name: string }>) => {
 
 export const gameRoutes = HttpRouter.empty.pipe(
 	// GET /games/new must come before /games/:id
-	HttpRouter.get("/games/new", fragment(<RegisterGame />)),
+	HttpRouter.get(
+		"/games/new",
+		Effect.gen(function* () {
+			const params = yield* HttpServerRequest.schemaSearchParams(
+				Schema.Struct({ kind: Schema.optional(Schema.Literal("1v1", "2v2")) }),
+			);
+			return fragment(<RegisterGame kind={params.kind ?? "1v1"} />);
+		}),
+	),
 
 	// GET /games - scoreboard
 	HttpRouter.get(
@@ -39,7 +44,7 @@ export const gameRoutes = HttpRouter.empty.pipe(
 			const players = yield* Players;
 			const allPlayers = yield* players.list({ pageSize: 1000 });
 			const nameOf = buildNameOf(allPlayers.items);
-			const isPartial = isHtmx(req);
+			const isPartial = isPartialRequest(req);
 			return respond(
 				isPartial,
 				<Scoreboard
@@ -72,7 +77,7 @@ export const gameRoutes = HttpRouter.empty.pipe(
 			const players = yield* Players;
 			const allPlayers = yield* players.list({ pageSize: 1000 });
 			const nameOf = buildNameOf(allPlayers.items);
-			const isPartial = isHtmx(req);
+			const isPartial = isPartialRequest(req);
 
 			if (isPartial) {
 				return fragment(
@@ -84,19 +89,18 @@ export const gameRoutes = HttpRouter.empty.pipe(
 						nameOf={nameOf}
 					/>,
 				);
-			} else {
-				return html(
-					<Layout title="Scoreboard" active="games">
-						<Scoreboard
-							items={result.items}
-							page={result.page}
-							total={result.total}
-							pageSize={result.pageSize}
-							nameOf={nameOf}
-						/>
-					</Layout>,
-				).pipe(HttpServerResponse.setStatus(303));
 			}
+			return html(
+				<Layout title="Scoreboard" active="games">
+					<Scoreboard
+						items={result.items}
+						page={result.page}
+						total={result.total}
+						pageSize={result.pageSize}
+						nameOf={nameOf}
+					/>
+				</Layout>,
+			).pipe(HttpServerResponse.setStatus(303));
 		}).pipe(
 			Effect.catchTag("InvalidLineup", (e) =>
 				fragment(<RegisterGame error={e.reason} />).pipe(
@@ -123,9 +127,7 @@ export const gameRoutes = HttpRouter.empty.pipe(
 					<tbody>
 						<tr>
 							<td>{game.mode.kind}</td>
-							<td>
-								{game.leftGoals} – {game.rightGoals}
-							</td>
+							<td>{game.winner === "left" ? "Left won" : "Right won"}</td>
 						</tr>
 					</tbody>
 				</table>,
