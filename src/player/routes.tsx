@@ -22,7 +22,6 @@ const ListSearchParams = Schema.Struct({
 });
 
 export const playerRoutes = HttpRouter.empty.pipe(
-	// GET / - redirect to games
 	HttpRouter.get(
 		"/",
 		HttpServerResponse.empty({ status: 302 }).pipe(
@@ -30,7 +29,6 @@ export const playerRoutes = HttpRouter.empty.pipe(
 		),
 	),
 
-	// GET /players - list with search and pagination
 	HttpRouter.get(
 		"/players",
 		Effect.gen(function* () {
@@ -60,10 +58,10 @@ export const playerRoutes = HttpRouter.empty.pipe(
 		}),
 	),
 
-	// GET /players/new - register form (must come before /players/:id)
+	// must come before /players/:id
 	HttpRouter.get("/players/new", fragment(<RegisterPlayer />)),
 
-	// GET /players/search - search results for combobox (must come before /players/:id)
+	// must come before /players/:id
 	HttpRouter.get(
 		"/players/search",
 		Effect.gen(function* () {
@@ -77,7 +75,6 @@ export const playerRoutes = HttpRouter.empty.pipe(
 		}),
 	),
 
-	// POST /players - create player
 	HttpRouter.post(
 		"/players",
 		Effect.gen(function* () {
@@ -126,7 +123,6 @@ export const playerRoutes = HttpRouter.empty.pipe(
 		),
 	),
 
-	// GET /players/:id - view profile
 	HttpRouter.get(
 		"/players/:id",
 		Effect.gen(function* () {
@@ -147,7 +143,6 @@ export const playerRoutes = HttpRouter.empty.pipe(
 		),
 	),
 
-	// GET /players/:id/edit - edit form
 	HttpRouter.get(
 		"/players/:id/edit",
 		Effect.gen(function* () {
@@ -162,7 +157,6 @@ export const playerRoutes = HttpRouter.empty.pipe(
 		),
 	),
 
-	// PATCH /players/:id - update player
 	HttpRouter.patch(
 		"/players/:id",
 		Effect.gen(function* () {
@@ -202,7 +196,6 @@ export const playerRoutes = HttpRouter.empty.pipe(
 		),
 	),
 
-	// DELETE /players/:id - remove player
 	HttpRouter.del(
 		"/players/:id",
 		Effect.gen(function* () {
@@ -240,7 +233,6 @@ export const playerRoutes = HttpRouter.empty.pipe(
 		),
 	),
 
-	// GET /players/:id/games - games for this player
 	HttpRouter.get(
 		"/players/:id/games",
 		Effect.gen(function* () {

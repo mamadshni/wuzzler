@@ -1,7 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { Context, Effect, Layer, Ref } from "effect";
-import type { Email } from "./domain";
-import { InvalidCredentials, User, UserId } from "./domain";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
+import { Email, InvalidCredentials, User, UserId } from "./domain";
 
 const hashPassword = (password: string): string => {
 	const salt = randomBytes(16).toString("hex");
@@ -39,7 +38,7 @@ export const AuthMemoryLive = Layer.effect(
 		const seedUserId = UserId.make("seed-user-1");
 		const seedUser = new User({
 			id: seedUserId,
-			email: "shmingela@gmail.com" as typeof Email.Type,
+			email: Schema.decodeSync(Email)("shmingela@gmail.com"),
 			passwordHash: hashPassword("password123"),
 		});
 		const users = new Map([[seedUserId, seedUser]]);

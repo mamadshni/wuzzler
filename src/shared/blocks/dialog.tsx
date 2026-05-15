@@ -4,10 +4,8 @@ type Props = {
 	children: JSX.Element | JSX.Element[];
 };
 
-export const Dialog = ({ open, id, children }: Props) => {
-	const attrs = { id } as Record<string, string | undefined>;
-	if (open) {
-		(attrs as Record<string, string>).open = "";
-	}
-	return <dialog {...attrs}>{children}</dialog>;
-};
+export const Dialog = ({ open, id, children }: Props) => (
+	<dialog id={id} open={open || undefined}>
+		{children}
+	</dialog>
+);

@@ -1,10 +1,12 @@
-import { Context, Effect, Layer } from "effect";
+import { eq, like, sql } from "drizzle-orm";
+import { Context, Effect, Layer, Schema } from "effect";
 import { Db, DbLive } from "../db";
+import * as schema from "../schema";
 import {
 	DuplicatePlayerName,
 	Player,
 	PlayerId,
-	type PlayerName,
+	PlayerName,
 	PlayerNotFound,
 } from "./domain";
 
@@ -15,13 +17,18 @@ type PlayerListResult = {
 	pageSize: number;
 };
 
-type PlayerRow = { id: string; name: string };
+type PlayerRow = typeof schema.players.$inferSelect;
 
 const toPlayer = (row: PlayerRow): Player =>
 	new Player({
 		id: PlayerId.make(row.id),
-		name: row.name as typeof PlayerName.Type,
+		name: Schema.decodeSync(PlayerName)(row.name),
 	});
+
+const isUniqueViolation = (e: unknown): boolean =>
+	e instanceof Error &&
+	"code" in e &&
+	(e as { code: string }).code === "SQLITE_CONSTRAINT_UNIQUE";
 
 export class Players extends Context.Tag("Players")<
 	Players,
@@ -54,16 +61,17 @@ export const PlayersLive = Layer.effect(
 				Effect.sync(() => {
 					const { q, page = 1, pageSize = 20 } = opts;
 					const rows = q
-						? (db
-								.prepare(
-									`SELECT * FROM players WHERE name LIKE ? ORDER BY name COLLATE NOCASE`,
-								)
-								.all(`%${q}%`) as PlayerRow[])
-						: (db
-								.prepare(
-									`SELECT * FROM players ORDER BY name COLLATE NOCASE`,
-								)
-								.all() as PlayerRow[]);
+						? db
+								.select()
+								.from(schema.players)
+								.where(like(schema.players.name, `%${q}%`))
+								.orderBy(sql`name COLLATE NOCASE`)
+								.all()
+						: db
+								.select()
+								.from(schema.players)
+								.orderBy(sql`name COLLATE NOCASE`)
+								.all();
 					const total = rows.length;
 					const start = (page - 1) * pageSize;
 					return {
@@ -77,8 +85,10 @@ export const PlayersLive = Layer.effect(
 			get: (id) =>
 				Effect.gen(function* () {
 					const row = db
-						.prepare(`SELECT * FROM players WHERE id = ?`)
-						.get(id) as PlayerRow | undefined;
+						.select()
+						.from(schema.players)
+						.where(eq(schema.players.id, id))
+						.get();
 					if (!row) return yield* new PlayerNotFound({ id });
 					return toPlayer(row);
 				}),
@@ -87,14 +97,9 @@ export const PlayersLive = Layer.effect(
 				Effect.gen(function* () {
 					const id = PlayerId.make(crypto.randomUUID());
 					try {
-						db.prepare(
-							`INSERT INTO players (id, name) VALUES (?, ?)`,
-						).run(id, input.name);
+						db.insert(schema.players).values({ id, name: input.name }).run();
 					} catch (e) {
-						if (
-							e instanceof Error &&
-							e.message.includes("UNIQUE constraint failed")
-						) {
+						if (isUniqueViolation(e)) {
 							return yield* new DuplicatePlayerName({ name: input.name });
 						}
 						throw e;
@@ -105,19 +110,18 @@ export const PlayersLive = Layer.effect(
 			update: (id, input) =>
 				Effect.gen(function* () {
 					const existing = db
-						.prepare(`SELECT * FROM players WHERE id = ?`)
-						.get(id) as PlayerRow | undefined;
+						.select()
+						.from(schema.players)
+						.where(eq(schema.players.id, id))
+						.get();
 					if (!existing) return yield* new PlayerNotFound({ id });
 					try {
-						db.prepare(`UPDATE players SET name = ? WHERE id = ?`).run(
-							input.name,
-							id,
-						);
+						db.update(schema.players)
+							.set({ name: input.name })
+							.where(eq(schema.players.id, id))
+							.run();
 					} catch (e) {
-						if (
-							e instanceof Error &&
-							e.message.includes("UNIQUE constraint failed")
-						) {
+						if (isUniqueViolation(e)) {
 							return yield* new DuplicatePlayerName({ name: input.name });
 						}
 						throw e;
@@ -128,23 +132,23 @@ export const PlayersLive = Layer.effect(
 			remove: (id) =>
 				Effect.gen(function* () {
 					const result = db
-						.prepare(`DELETE FROM players WHERE id = ?`)
-						.run(id);
+						.delete(schema.players)
+						.where(eq(schema.players.id, id))
+						.run();
 					if (result.changes === 0) return yield* new PlayerNotFound({ id });
 				}),
 
 			search: (q) =>
 				Effect.sync(() => {
 					const rows = db
-						.prepare(
-							`SELECT * FROM players WHERE name LIKE ? ORDER BY name COLLATE NOCASE LIMIT 10`,
-						)
-						.all(`%${q}%`) as PlayerRow[];
+						.select()
+						.from(schema.players)
+						.where(like(schema.players.name, `%${q}%`))
+						.orderBy(sql`name COLLATE NOCASE`)
+						.limit(10)
+						.all();
 					return rows.map(toPlayer);
 				}),
 		});
 	}),
 ).pipe(Layer.provide(DbLive));
-
-// Keep old name as alias for backwards-compat with main.tsx
-export const PlayersMemoryLive = PlayersLive;

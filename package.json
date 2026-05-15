@@ -12,14 +12,18 @@
 	"dependencies": {
 		"@effect/platform": "^0.96.1",
 		"@effect/platform-node": "^0.106.0",
+		"better-sqlite3": "^12.10.0",
+		"drizzle-orm": "^0.45.2",
 		"effect": "^3.21.2",
 		"htmx-tsx": "0.0.48",
 		"tsx-to-html": "0.0.31"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.15",
+		"@types/better-sqlite3": "^7.6.13",
 		"@types/node": "^25.8.0",
 		"@types/ws": "^8.18.1",
+		"drizzle-kit": "^0.31.10",
 		"esbuild": "^0.28.0",
 		"tsx": "^4.22.0",
 		"typescript": "^6.0.3",

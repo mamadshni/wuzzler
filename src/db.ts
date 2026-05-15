@@ -1,28 +1,21 @@
-import { DatabaseSync } from "node:sqlite";
+import Database from "better-sqlite3";
+import {
+	type BetterSQLite3Database,
+	drizzle,
+} from "drizzle-orm/better-sqlite3";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { Context, Layer } from "effect";
+import * as schema from "./schema";
 
-export class Db extends Context.Tag("Db")<Db, DatabaseSync>() {}
+export class Db extends Context.Tag("Db")<
+	Db,
+	BetterSQLite3Database<typeof schema>
+>() {}
 
 export const DbLive = Layer.sync(Db, () => {
-	const db = new DatabaseSync("./wuzzler.db");
-	db.exec("PRAGMA journal_mode = WAL");
-	db.exec(`
-    CREATE TABLE IF NOT EXISTS players (
-      id TEXT PRIMARY KEY,
-      name TEXT UNIQUE NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS games (
-      id TEXT PRIMARY KEY,
-      kind TEXT NOT NULL,
-      left_player TEXT,
-      right_player TEXT,
-      left_player_a TEXT,
-      left_player_b TEXT,
-      right_player_a TEXT,
-      right_player_b TEXT,
-      winner TEXT NOT NULL,
-      played_at TEXT NOT NULL
-    );
-  `);
+	const sqlite = new Database("./wuzzler.db");
+	sqlite.pragma("journal_mode = WAL");
+	const db = drizzle(sqlite, { schema });
+	migrate(db, { migrationsFolder: "./drizzle" });
 	return db;
 });

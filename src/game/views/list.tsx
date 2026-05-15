@@ -6,7 +6,6 @@ type Props = {
 	items: ReadonlyArray<Game>;
 	page: number;
 	total: number;
-	pageSize: number;
 	nameOf: (id: string) => string;
 };
 

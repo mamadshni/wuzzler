@@ -30,7 +30,6 @@ export const gameRoutes = HttpRouter.empty.pipe(
 		}),
 	),
 
-	// GET /games - scoreboard
 	HttpRouter.get(
 		"/games",
 		Effect.gen(function* () {
@@ -51,7 +50,6 @@ export const gameRoutes = HttpRouter.empty.pipe(
 					items={result.items}
 					page={result.page}
 					total={result.total}
-					pageSize={result.pageSize}
 					nameOf={nameOf}
 				/>,
 				(body) => (
@@ -63,7 +61,6 @@ export const gameRoutes = HttpRouter.empty.pipe(
 		}),
 	),
 
-	// POST /games - record a game
 	HttpRouter.post(
 		"/games",
 		Effect.gen(function* () {
@@ -85,7 +82,6 @@ export const gameRoutes = HttpRouter.empty.pipe(
 						items={result.items}
 						page={result.page}
 						total={result.total}
-						pageSize={result.pageSize}
 						nameOf={nameOf}
 					/>,
 				);
@@ -96,7 +92,6 @@ export const gameRoutes = HttpRouter.empty.pipe(
 						items={result.items}
 						page={result.page}
 						total={result.total}
-						pageSize={result.pageSize}
 						nameOf={nameOf}
 					/>
 				</Layout>,
@@ -115,7 +110,6 @@ export const gameRoutes = HttpRouter.empty.pipe(
 		),
 	),
 
-	// GET /games/:id - single game detail
 	HttpRouter.get(
 		"/games/:id",
 		Effect.gen(function* () {

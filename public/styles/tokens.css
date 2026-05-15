@@ -25,6 +25,13 @@
 
 		--radius-sm: 0.25rem;
 		--radius-md: 0.5rem;
+
+		--color-on-accent: #ffffff;
+		--color-backdrop: rgb(0 0 0 / 0.4);
+		--dialog-min-width: min(90vw, 28rem);
+		--form-search-max: 24rem;
+		--focus-ring-width: 2px;
+		--focus-ring-offset: 2px;
 	}
 
 	@media (prefers-color-scheme: dark) {

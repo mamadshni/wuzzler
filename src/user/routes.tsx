@@ -26,7 +26,6 @@ const isHtmx = (req: HttpServerRequest.HttpServerRequest) =>
 	req.headers["hx-request"] === "true";
 
 export const userRoutes = HttpRouter.empty.pipe(
-	// GET /login - login form
 	HttpRouter.get(
 		"/login",
 		html(
@@ -36,7 +35,6 @@ export const userRoutes = HttpRouter.empty.pipe(
 		),
 	),
 
-	// POST /sessions - create session
 	HttpRouter.post(
 		"/sessions",
 		Effect.gen(function* () {
@@ -74,7 +72,6 @@ export const userRoutes = HttpRouter.empty.pipe(
 		),
 	),
 
-	// DELETE /sessions/current - logout
 	HttpRouter.del(
 		"/sessions/current",
 		Effect.gen(function* () {
