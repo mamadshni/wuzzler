@@ -1,4 +1,2 @@
 /* Variant classes — only when no element/attribute selector suffices.
    Each class must be single-word, semantic, and used in >1 place. */
-@layer variants {
-}
