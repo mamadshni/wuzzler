@@ -1,135 +1,137 @@
-import {
-	HttpRouter,
-	HttpServerRequest,
-	HttpServerResponse,
-} from "@effect/platform";
 import { Effect, Schema } from "effect";
 import { Players } from "../player/service";
 import { Layout } from "../shared/layout";
 import { fragment, html } from "../shared/render";
-import { isPartialRequest, respond } from "../shared/routing";
+import { isPartial, respond } from "../shared/routing";
 import { RegisterGameInput, validateLineup } from "./domain";
 import { Games } from "./service";
 import { Scoreboard } from "./views/list";
 import { RegisterGame } from "./views/register";
+import { A } from "andale";
 
 const buildNameOf = (players: ReadonlyArray<{ id: string; name: string }>) => {
 	const map = new Map(players.map((p) => [p.id, p.name]));
 	return (id: string) => map.get(id) ?? id;
 };
 
-export const gameRoutes = HttpRouter.empty.pipe(
+// export const gameRoutes = HttpRouter.empty.pipe(
+export const gameRoutes = A.Router.from(
 	// GET /games/new must come before /games/:id
-	HttpRouter.get(
-		"/games/new",
-		Effect.gen(function* () {
-			const params = yield* HttpServerRequest.schemaSearchParams(
-				Schema.Struct({ kind: Schema.optional(Schema.Literal("1v1", "2v2")) }),
-			);
-			return fragment(<RegisterGame kind={params.kind ?? "1v1"} />);
+	A.path("/games/new").pipe(
+		A.verb("GET"),
+		A.query(
+			Schema.Struct({ kind: Schema.optional(Schema.Literal("1v1", "2v2")) }),
+		),
+		A.respond(function* ({ query: { kind } }) {
+			return fragment(<RegisterGame> kind={kind ?? "1v1"}</RegisterGame>);
 		}),
 	),
 
-	HttpRouter.get(
-		"/games",
-		Effect.gen(function* () {
-			const req = yield* HttpServerRequest.HttpServerRequest;
-			const params = yield* HttpServerRequest.schemaSearchParams(
-				Schema.Struct({ page: Schema.optional(Schema.String) }),
-			);
-			const page = params.page ? parseInt(params.page, 10) : 1;
-			const games = yield* Games;
+	A.path("/games").pipe(
+		A.verb("GET"),
+		A.query(Schema.Struct({ page: Schema.optional(Schema.String) })),
+		A.respond(function* ({ query }) {
+			const page = query.page ? parseInt(query.page, 10) : 1;
+			const games = yield* Games; // TODO yield boilderplate in each respond. How to reduce?
 			const result = yield* games.list({ page });
 			const players = yield* Players;
 			const allPlayers = yield* players.list({ pageSize: 1000 });
 			const nameOf = buildNameOf(allPlayers.items);
-			const isPartial = isPartialRequest(req);
-			return respond(
-				isPartial,
-				<Scoreboard
-					items={result.items}
-					page={result.page}
-					total={result.total}
-					nameOf={nameOf}
-				/>,
-				(body) => (
-					<Layout title="Scoreboard" active="games">
-						{body}
-					</Layout>
+			const isHx = yield* isPartial;
+
+			return A.Response.asHtml(
+				A.Response.of(
+					respond(
+						isHx,
+						<Scoreboard
+							items={result.items}
+							page={result.page}
+							total={result.total}
+							nameOf={nameOf}
+						/>,
+						(body) => (
+							<Layout title="Scoreboard" active="games">
+								{body}
+							</Layout>
+						),
+					),
 				),
 			);
 		}),
 	),
 
-	HttpRouter.post(
-		"/games",
-		Effect.gen(function* () {
-			const req = yield* HttpServerRequest.HttpServerRequest;
-			const body =
-				yield* HttpServerRequest.schemaBodyUrlParams(RegisterGameInput);
-			const validated = yield* validateLineup(body);
-			const games = yield* Games;
-			yield* games.create(validated);
-			const result = yield* games.list();
-			const players = yield* Players;
-			const allPlayers = yield* players.list({ pageSize: 1000 });
-			const nameOf = buildNameOf(allPlayers.items);
-			const isPartial = isPartialRequest(req);
+	A.path("/games").pipe(
+		A.verb("POST"),
+		A.body(RegisterGameInput),
+		A.respond(function* ({ body }) {
+			const validated = yield* validateLineup(body).pipe(
+				Effect.catchTag("InvalidLineup", (e) =>
+					Effect.fail(
+						A.Response.asHtml(
+							A.Response.of(<RegisterGame error={e.reason} />, { status: 422 }),
+						),
+					),
+				),
+			);
+			const gameService = yield* Games;
+			yield* gameService.create(validated);
+			const result = yield* gameService.list();
+			const playerService = yield* Players;
+			const players = yield* playerService.list({ pageSize: 1000 });
+			const nameOf = buildNameOf(players.items);
+			const isHx = yield* isPartial;
 
-			if (isPartial) {
-				return fragment(
-					<Scoreboard
-						items={result.items}
-						page={result.page}
-						total={result.total}
-						nameOf={nameOf}
-					/>,
-				);
-			}
-			return html(
-				<Layout title="Scoreboard" active="games">
-					<Scoreboard
-						items={result.items}
-						page={result.page}
-						total={result.total}
-						nameOf={nameOf}
-					/>
-				</Layout>,
-			).pipe(HttpServerResponse.setStatus(303));
-		}).pipe(
-			Effect.catchTag("InvalidLineup", (e) =>
-				fragment(<RegisterGame error={e.reason} />).pipe(
-					HttpServerResponse.setStatus(422),
+			return A.Response.asHtml(
+				A.Response.of(
+					respond(
+						isHx,
+						<Scoreboard
+							items={result.items}
+							page={result.page}
+							total={result.total}
+							nameOf={nameOf}
+						/>,
+						(body) => (
+							<Layout title="Scoreboard" active="games">
+								{body}
+							</Layout>
+						),
+					),
 				),
-			),
-			Effect.catchTag("ParseError", () =>
-				fragment(<RegisterGame error="Invalid form data" />).pipe(
-					HttpServerResponse.setStatus(422),
-				),
-			),
-		),
+			);
+		}),
 	),
 
-	HttpRouter.get(
-		"/games/:id",
-		Effect.gen(function* () {
-			const { id } = yield* HttpRouter.params;
-			const games = yield* Games;
-			const game = yield* games.get(id ?? "");
-			return fragment(
-				<table>
-					<tbody>
-						<tr>
-							<td>{game.mode.kind}</td>
-							<td>{game.winner === "left" ? "Left won" : "Right won"}</td>
-						</tr>
-					</tbody>
-				</table>,
+	A.path("/games/:id").pipe(
+		A.verb("GET"),
+		A.respond(function* ({ path }) {
+			const gameService = yield* Games;
+			const game = yield* gameService
+				.get(path.id)
+				.pipe(
+					Effect.catchTag("GameNotFound", () =>
+						Effect.fail(
+							A.Response.asHtml(
+								A.Response.notFound(html(<p>Game Not Found</p>)),
+							),
+						),
+					),
+				);
+
+			return A.Response.asHtml(
+				A.Response.success(
+					fragment(
+						<table>
+							<tbody>
+								<tr>
+									<td>{game.mode.kind}</td>
+									<td>{game.winner === "left" ? "Left won" : "Right won"}</td>
+								</tr>
+							</tbody>
+						</table>,
+					),
+				),
 			);
-		}).pipe(
-			Effect.catchTag("GameNotFound", () =>
-				HttpServerResponse.empty({ status: 404 }),
-			),
-		),
+		}),
 	),
 );

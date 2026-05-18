@@ -1,19 +1,8 @@
-import {
-	HttpRouter,
-	HttpServerRequest,
-	HttpServerResponse,
-} from "@effect/platform";
-import { Effect, pipe, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { Games } from "../game/service";
 import { Layout } from "../shared/layout";
-import { fragment, html } from "../shared/render";
 import { isPartial, respond } from "../shared/routing";
-import {
-	DuplicatePlayerName,
-	EditPlayerInput,
-	PlayerNotFound,
-	RegisterPlayerInput,
-} from "./domain";
+import { EditPlayerInput, RegisterPlayerInput } from "./domain";
 import { Players } from "./service";
 import { EditPlayer } from "./views/edit";
 import { PlayerList } from "./views/list";
@@ -21,7 +10,6 @@ import { PlayerProfile } from "./views/profile";
 import { RegisterPlayer } from "./views/register";
 import { SearchResults } from "./views/search-result";
 import { A } from "andale";
-import { is } from "drizzle-orm";
 import { toHtml } from "tsx-to-html";
 
 const ListSearchParams = Schema.Struct({
