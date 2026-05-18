@@ -1,21 +1,38 @@
 import "./jsx-setup";
 import { createServer } from "node:http";
-import { HttpServer } from "@effect/platform";
-import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
 import { Layer } from "effect";
-import { GamesLive } from "./game/service";
 import { PlayersLive } from "./player/service";
 import { router } from "./router";
-import { AuthMemoryLive } from "./user/service";
+import { createServerAdapter } from "@whatwg-node/server";
+import { A } from "andale";
+import { GamesLive } from "./game/service";
 
-const ServerLive = NodeHttpServer.layer(createServer, { port: 3000 });
 
-const AppLive = router.pipe(
-	HttpServer.serve(),
-	Layer.provide(PlayersLive),
-	Layer.provide(GamesLive),
-	Layer.provide(AuthMemoryLive),
-	Layer.provide(ServerLive),
-);
 
-NodeRuntime.runMain(Layer.launch(AppLive));
+const createAServer = async (
+    handler: (request: Request) => Promise<Response>,
+) => {
+    const port = 3000;
+    const server = createServer(createServerAdapter(handler));
+
+    await new Promise<void>((resolve) => server.listen(port, resolve));
+
+    return {
+        origin: `http://localhost:${port}`,
+        [Symbol.dispose]() {
+            server.close();
+        },
+    };
+};
+
+const handler = A.Router.asHandler(router, 
+	Layer.empty.pipe(
+	Layer.provideMerge(PlayersLive),
+    Layer.provideMerge(GamesLive),
+));
+
+const server = createAServer(handler);
+
+server.then(result => {
+    console.log(result.origin);
+})

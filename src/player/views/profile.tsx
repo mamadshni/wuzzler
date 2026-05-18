@@ -14,7 +14,9 @@ export const PlayerProfile = ({ player }: Props) => (
 			hx-trigger="load"
 			hx-swap="innerHTML"
 		>
+			<div>
 			<p>Loading games…</p>
+			</div>
 		</section>
 		<footer>
 			<button

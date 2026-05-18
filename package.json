@@ -12,6 +12,8 @@
 	"dependencies": {
 		"@effect/platform": "^0.96.1",
 		"@effect/platform-node": "^0.106.0",
+		"@whatwg-node/server": "^0.10.18",
+		"andale": "^0.7.1",
 		"better-sqlite3": "^12.10.0",
 		"drizzle-orm": "^0.45.2",
 		"effect": "^3.21.2",

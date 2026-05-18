@@ -3,45 +3,53 @@ import {
 	HttpServerRequest,
 	HttpServerResponse,
 } from "@effect/platform";
-import { Effect, Schema } from "effect";
+import { Effect, pipe, Schema } from "effect";
 import { Games } from "../game/service";
 import { Layout } from "../shared/layout";
 import { fragment, html } from "../shared/render";
-import { isPartialRequest, respond } from "../shared/routing";
-import { EditPlayerInput, RegisterPlayerInput } from "./domain";
+import { isPartial, respond } from "../shared/routing";
+import {
+	DuplicatePlayerName,
+	EditPlayerInput,
+	PlayerNotFound,
+	RegisterPlayerInput,
+} from "./domain";
 import { Players } from "./service";
 import { EditPlayer } from "./views/edit";
 import { PlayerList } from "./views/list";
 import { PlayerProfile } from "./views/profile";
 import { RegisterPlayer } from "./views/register";
 import { SearchResults } from "./views/search-result";
+import { A } from "andale";
+import { is } from "drizzle-orm";
+import { toHtml } from "tsx-to-html";
 
 const ListSearchParams = Schema.Struct({
 	q: Schema.optional(Schema.String),
 	page: Schema.optional(Schema.String),
 });
 
-export const playerRoutes = HttpRouter.empty.pipe(
-	HttpRouter.get(
-		"/",
-		HttpServerResponse.empty({ status: 302 }).pipe(
-			HttpServerResponse.setHeader("Location", "/games"),
+export const playerRoutes = A.Router.from(
+	A.path("/") //TODO this belongs in the root router
+		.pipe(
+			A.verb("GET"),
+			A.respond(function* () {
+				return A.Response.redirect("/games");
+			}),
 		),
-	),
 
-	HttpRouter.get(
-		"/players",
-		Effect.gen(function* () {
-			const req = yield* HttpServerRequest.HttpServerRequest;
-			const params =
-				yield* HttpServerRequest.schemaSearchParams(ListSearchParams);
-			const q = params.q;
-			const page = params.page ? parseInt(params.page, 10) : 1;
+	A.path("/players").pipe(
+		A.verb("GET"),
+		A.query(ListSearchParams),
+		A.respond(function* ({ query }) {
+			const q = query.q;
+			const page = query.page ? parseInt(query.page, 10) : 1;
 			const players = yield* Players;
 			const result = yield* players.list({ q, page });
-			const isPartial = isPartialRequest(req);
-			return respond(
-				isPartial,
+			const isHx = yield* isPartial;
+
+			const temp = respond(
+				isHx,
 				<PlayerList
 					items={result.items}
 					page={result.page}
@@ -55,225 +63,265 @@ export const playerRoutes = HttpRouter.empty.pipe(
 					</Layout>
 				),
 			);
+
+			return A.Response.asHtml(A.Response.of(temp));
 		}),
 	),
 
 	// must come before /players/:id
-	HttpRouter.get("/players/new", fragment(<RegisterPlayer />)),
+	A.path("/players/new").pipe(
+		A.verb("GET"),
+		A.respond(function* () {
+			return A.Response.asHtml(A.Response.of(toHtml(<RegisterPlayer />)));
+		}),
+	),
 
 	// must come before /players/:id
-	HttpRouter.get(
-		"/players/search",
-		Effect.gen(function* () {
-			const params = yield* HttpServerRequest.schemaSearchParams(
-				Schema.Struct({ q: Schema.optional(Schema.String) }),
-			);
-			const q = params.q ?? "";
+	A.path("/players/search").pipe(
+		A.verb("GET"),
+		A.query(ListSearchParams),
+		A.respond(function* ({ query }) {
+			const q = query.q ?? "";
 			const players = yield* Players;
 			const results = yield* players.search(q);
-			return fragment(<SearchResults items={results} />);
+			return A.Response.asHtml(
+				A.Response.of(toHtml(<SearchResults items={results} />)),
+			);
 		}),
 	),
 
-	HttpRouter.post(
-		"/players",
-		Effect.gen(function* () {
-			const req = yield* HttpServerRequest.HttpServerRequest;
-			const body =
-				yield* HttpServerRequest.schemaBodyUrlParams(RegisterPlayerInput);
+	A.path("/players").pipe(
+		A.verb("POST"),
+		A.body(RegisterPlayerInput),
+		A.respond(function* ({ body }) {
 			const players = yield* Players;
-			yield* players.create({ name: body.name });
-			const result = yield* players.list();
-			const isPartial = isPartialRequest(req);
-
-			if (isPartial) {
-				return fragment(
-					<PlayerList
-						items={result.items}
-						page={result.page}
-						total={result.total}
-						pageSize={result.pageSize}
-					/>,
+			yield* players
+				.create({ name: body.name })
+				.pipe(
+					Effect.catchTag("DuplicatePlayerName", () =>
+						Effect.fail(
+							A.Response.asHtml(
+								A.Response.of(
+									<RegisterPlayer
+										error={`Name "${body.name}" is already taken`}
+										values={{ name: body.name }}
+									/>,
+									{ status: 422 },
+								),
+							),
+						),
+					),
 				);
-			}
-			return html(
-				<Layout title="Players" active="players">
-					<PlayerList
-						items={result.items}
-						page={result.page}
-						total={result.total}
-						pageSize={result.pageSize}
-					/>
-				</Layout>,
-			).pipe(HttpServerResponse.setStatus(303));
-		}).pipe(
-			Effect.catchTag("DuplicatePlayerName", (e) =>
-				fragment(
-					<RegisterPlayer
-						error={`Name "${e.name}" is already taken`}
-						values={{ name: e.name }}
-					/>,
-				).pipe(HttpServerResponse.setStatus(422)),
-			),
-			Effect.catchTag("ParseError", () =>
-				fragment(<RegisterPlayer error="Name is required" />).pipe(
-					HttpServerResponse.setStatus(422),
+			const result = yield* players.list();
+			const isHx = yield* isPartial;
+
+			return A.Response.asHtml(
+				A.Response.created(
+					respond(
+						isHx,
+						<PlayerList
+							items={result.items}
+							page={result.page}
+							total={result.total}
+							pageSize={result.pageSize}
+						/>,
+						(body) => (
+							<Layout title="Players" active="players">
+								{body}
+							</Layout>
+						),
+					),
 				),
-			),
-		),
+			);
+
+			// return A.Response.redirect("/players"); //TODO redirect better than full page reload??? Discuss with AI.
+		}),
 	),
 
-	HttpRouter.get(
-		"/players/:id",
-		Effect.gen(function* () {
-			const req = yield* HttpServerRequest.HttpServerRequest;
-			const { id } = yield* HttpRouter.params;
+	A.path("/players/:id").pipe(
+		A.verb("GET"),
+		A.respond(function* ({ path: { id } }) {
 			const players = yield* Players;
-			const player = yield* players.get(id ?? "");
-			const isPartial = isPartialRequest(req);
-			return respond(isPartial, <PlayerProfile player={player} />, (body) => (
-				<Layout title={player.name} active="players">
-					{body}
-				</Layout>
-			));
-		}).pipe(
-			Effect.catchTag("PlayerNotFound", () =>
-				HttpServerResponse.empty({ status: 404 }),
-			),
-		),
+			const player = yield* players
+				.get(id)
+				.pipe(
+					Effect.catchTag("PlayerNotFound", () =>
+						Effect.fail(A.Response.notFound("Player not found")),
+					),
+				);
+			const isHx = yield* isPartial;
+
+			return A.Response.asHtml(
+				A.Response.success(
+					respond(isHx, <PlayerProfile player={player} />, (body) => (
+						<Layout title={player.name} active="players">
+							{body}
+						</Layout>
+					)),
+				),
+			);
+		}),
 	),
 
-	HttpRouter.get(
-		"/players/:id/edit",
-		Effect.gen(function* () {
-			const { id } = yield* HttpRouter.params;
+	A.path("/players/:id/edit").pipe(
+		A.verb("GET"),
+		A.respond(function* ({ path: { id } }) {
 			const players = yield* Players;
-			const player = yield* players.get(id ?? "");
-			return fragment(<EditPlayer player={player} />);
-		}).pipe(
-			Effect.catchTag("PlayerNotFound", () =>
-				HttpServerResponse.empty({ status: 404 }),
-			),
-		),
+			const player = yield* players
+				.get(id)
+				.pipe(
+					Effect.catchTag("PlayerNotFound", () =>
+						Effect.fail(A.Response.notFound("Player not found")),
+					),
+				);
+			const isHx = yield* isPartial;
+
+			return A.Response.asHtml(
+				A.Response.success(
+					respond(isHx, <EditPlayer player={player} />, (body) => (
+						<Layout title={player.name} active="players">
+							{body}
+						</Layout>
+					)),
+				),
+			);
+		}),
 	),
 
-	HttpRouter.patch(
-		"/players/:id",
-		Effect.gen(function* () {
-			const req = yield* HttpServerRequest.HttpServerRequest;
-			const { id } = yield* HttpRouter.params;
-			const body =
-				yield* HttpServerRequest.schemaBodyUrlParams(EditPlayerInput);
+	A.path("/players/:id").pipe(
+		A.verb("PATCH"),
+		A.body(EditPlayerInput),
+		A.respond(function* ({ path: { id }, body }) {
 			const players = yield* Players;
-			const player = yield* players.update(id ?? "", { name: body.name });
-			const isPartial = isPartialRequest(req);
+			const player = yield* players.update(id, { name: body.name }).pipe(
+				Effect.catchTag("DuplicatePlayerName", () =>
+					Effect.fail(
+						A.Response.asHtml(
+							A.Response.of(
+								<EditPlayer
+									player={{ id, name: body.name }}
+									error={body.name}
+								/>,
+								{ status: 422 },
+							),
+						),
+					),
+				),
+				Effect.catchTag("PlayerNotFound", () =>
+					Effect.fail(
+						A.Response.asHtml(
+							A.Response.notFound(
+								<EditPlayer
+									player={{ id, name: body.name }}
+									error={body.name}
+								/>,
+							),
+						),
+					),
+				),
+			);
 
-			if (isPartial) {
-				return fragment(<PlayerProfile player={player} />);
-			}
-			return html(
-				<Layout title={player.name} active="players">
-					<PlayerProfile player={player} />
-				</Layout>,
-			).pipe(HttpServerResponse.setStatus(303));
-		}).pipe(
-			Effect.catchTag("PlayerNotFound", () =>
-				HttpServerResponse.empty({ status: 404 }),
-			),
-			Effect.catchTag("DuplicatePlayerName", (e) =>
-				fragment(
-					<EditPlayer
-						player={{ id: "", name: e.name }}
-						error={`Name "${e.name}" is already taken`}
-					/>,
-				).pipe(HttpServerResponse.setStatus(422)),
-			),
-			Effect.catchTag("ParseError", () =>
-				fragment(
-					<EditPlayer player={{ id: "", name: "" }} error="Name is required" />,
-				).pipe(HttpServerResponse.setStatus(422)),
-			),
-		),
+			const isHx = yield* isPartial;
+
+			return A.Response.asHtml(
+				A.Response.success(
+					respond(isHx, <PlayerProfile player={player} />, (body) => (
+						<Layout title={player.name} active="players">
+							{body}
+						</Layout>
+					)),
+				),
+			);
+		}),
 	),
 
-	HttpRouter.del(
-		"/players/:id",
-		Effect.gen(function* () {
-			const req = yield* HttpServerRequest.HttpServerRequest;
-			const { id } = yield* HttpRouter.params;
+	A.path("/players/:id").pipe(
+		A.verb("DELETE"),
+		A.respond(function* ({ path: { id } }) {
 			const players = yield* Players;
-			yield* players.remove(id ?? "");
+			yield* players
+				.remove(id)
+				.pipe(
+					Effect.catchTag("PlayerNotFound", () =>
+						Effect.fail(A.Response.notFound("Player not found")),
+					),
+				);
 			const result = yield* players.list();
-			const isPartial = isPartialRequest(req);
 
-			if (isPartial) {
-				return fragment(
-					<PlayerList
-						items={result.items}
-						page={result.page}
-						total={result.total}
-						pageSize={result.pageSize}
-					/>,
+			const isHx = yield* isPartial;
+
+			return A.Response.asHtml(
+				A.Response.success(
+					respond(
+						isHx,
+						<PlayerList
+							items={result.items}
+							page={result.page}
+							total={result.total}
+							pageSize={result.pageSize}
+						/>,
+						(body) => (
+							<Layout title="Players" active="players">
+								{body}
+							</Layout>
+						),
+					),
+				),
+			);
+		}),
+	),
+
+	A.path("/players/:id/games").pipe(
+		A.verb("GET"),
+		A.respond(function* ({ path: { id } }) {
+			const games = yield* Games;
+			const result = yield* games.list({ playerId: id, pageSize: 1000 });
+
+			console.log("result.items", result.items);
+
+			if (!result.items || result.items.length === 0) {
+				console.log("No games found for player", id);
+				return A.Response.asHtml(
+					A.Response.success(toHtml(<p>No games yet.</p>)),
 				);
 			}
-			return html(
-				<Layout title="Players" active="players">
-					<PlayerList
-						items={result.items}
-						page={result.page}
-						total={result.total}
-						pageSize={result.pageSize}
-					/>
-				</Layout>,
-			).pipe(HttpServerResponse.setStatus(303));
-		}).pipe(
-			Effect.catchTag("PlayerNotFound", () =>
-				HttpServerResponse.empty({ status: 404 }),
-			),
-		),
-	),
 
-	HttpRouter.get(
-		"/players/:id/games",
-		Effect.gen(function* () {
-			const { id } = yield* HttpRouter.params;
-			const games = yield* Games;
-			const result = yield* games.list({ playerId: id ?? "", pageSize: 1000 });
-			if (result.items.length === 0) {
-				return fragment(<p>No games yet.</p>);
-			}
-			return fragment(
-				<table>
-					<thead>
-						<tr>
-							<th>Date</th>
-							<th>Mode</th>
-							<th>Winner</th>
-						</tr>
-					</thead>
-					<tbody>
-						{result.items.map((g) => {
-							const date = new Date(g.playedAt).toLocaleDateString();
-							const winner =
-								g.mode.kind === "1v1"
-									? g.winner === "left"
-										? g.mode.leftPlayer
-										: g.mode.rightPlayer
-									: g.winner === "left"
-										? "Left team"
-										: "Right team";
-							return (
+			return A.Response.asHtml(
+				A.Response.success(
+					toHtml(
+						<table>
+							<thead>
 								<tr>
-									<td>{date}</td>
-									<td>{g.mode.kind}</td>
-									<td>
-										<strong>{winner}</strong>
-									</td>
+									<th>Date</th>
+									<th>Mode</th>
+									<th>Winner</th>
 								</tr>
-							);
-						})}
-					</tbody>
-				</table>,
+							</thead>
+							<tbody>
+								{result.items.map((g) => {
+									const date = new Date(g.playedAt).toLocaleDateString();
+									const winner =
+										g.mode.kind === "1v1"
+											? g.winner === "left"
+												? g.mode.leftPlayer
+												: g.mode.rightPlayer
+											: g.winner === "left"
+												? "Left team"
+												: "Right team";
+									return (
+										<tr>
+											<td>{date}</td>
+											<td>{g.mode.kind}</td>
+											<td>
+												<strong>{winner}</strong>
+											</td>
+										</tr>
+									);
+								})}
+							</tbody>
+						</table>,
+					),
+				),
 			);
 		}),
 	),

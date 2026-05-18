@@ -26,6 +26,11 @@
 		width: 100%;
 	}
 
+	a {
+		text-decoration: none;
+		color: inherit;
+	}
+
 	th,
 	td {
 		padding: var(--space-2);
