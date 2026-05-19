@@ -1,28 +1,38 @@
 type Props = {
-	active?: "players" | "games" | "login";
+	pathname: string;
+	isAuthed: boolean;
 };
 
-export const Sidebar = ({ active }: Props) => (
+type NavItem = {
+	href: string;
+	label: string | ((isAuthed: boolean) => string);
+};
+
+const NAV: ReadonlyArray<NavItem> = [
+	{ href: "/players", label: "Players" },
+	{ href: "/games", label: "Games" },
+	{ href: "/admin", label: (isAuthed) => (isAuthed ? "Admin" : "Login") },
+];
+
+const isActive = (pathname: string, href: string) =>
+	pathname === href || pathname.startsWith(`${href}/`);
+
+const labelOf = (label: NavItem["label"], isAuthed: boolean) =>
+	typeof label === "function" ? label(isAuthed) : label;
+
+export const Sidebar = ({ pathname, isAuthed }: Props) => (
 	<nav aria-label="Primary">
 		<ul>
-			<li>
-				<a
-					href="/players"
-					aria-current={active === "players" ? "page" : undefined}
-				>
-					Players
-				</a>
-			</li>
-			<li>
-				<a href="/games" aria-current={active === "games" ? "page" : undefined}>
-					Games
-				</a>
-			</li>
-			<li>
-				<a href="/login" aria-current={active === "login" ? "page" : undefined}>
-					Login
-				</a>
-			</li>
+			{NAV.map((item) => (
+				<li>
+					<a
+						href={item.href}
+						aria-current={isActive(pathname, item.href) ? "page" : undefined}
+					>
+						{labelOf(item.label, isAuthed)}
+					</a>
+				</li>
+			))}
 		</ul>
 	</nav>
 );

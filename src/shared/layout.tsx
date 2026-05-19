@@ -2,11 +2,17 @@ import { Sidebar } from "./blocks/sidebar";
 
 type Props = {
 	title?: string;
-	active?: "players" | "games" | "login";
+	pathname: string;
+	isAuthed: boolean;
 	children: JSX.Element | JSX.Element[];
 };
 
-export const Layout = ({ title = "Wuzzler", active, children }: Props) => (
+export const Layout = ({
+	title = "Wuzzler",
+	pathname,
+	isAuthed,
+	children,
+}: Props) => (
 	<html lang="en">
 		<head>
 			<meta charset="utf-8" />
@@ -22,7 +28,7 @@ export const Layout = ({ title = "Wuzzler", active, children }: Props) => (
 			/>
 		</head>
 		<body hx-boost="true">
-			<Sidebar active={active} />
+			<Sidebar pathname={pathname} isAuthed={isAuthed} />
 			<main>{children}</main>
 		</body>
 	</html>

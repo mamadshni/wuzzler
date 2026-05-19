@@ -1,8 +1,7 @@
 import { Effect, Schema } from "effect";
 import { Players } from "../player/service";
-import { Layout } from "../shared/layout";
+import { renderPage } from "../shared/page";
 import { fragment, html } from "../shared/render";
-import { isPartial, respond } from "../shared/routing";
 import { RegisterGameInput, validateLineup } from "./domain";
 import { Games } from "./service";
 import { Scoreboard } from "./views/list";
@@ -14,7 +13,6 @@ const buildNameOf = (players: ReadonlyArray<{ id: string; name: string }>) => {
 	return (id: string) => map.get(id) ?? id;
 };
 
-// export const gameRoutes = HttpRouter.empty.pipe(
 export const gameRoutes = A.Router.from(
 	// GET /games/new must come before /games/:id
 	A.path("/games/new").pipe(
@@ -32,31 +30,22 @@ export const gameRoutes = A.Router.from(
 		A.query(Schema.Struct({ page: Schema.optional(Schema.String) })),
 		A.respond(function* ({ query }) {
 			const page = query.page ? parseInt(query.page, 10) : 1;
-			const games = yield* Games; // TODO yield boilderplate in each respond. How to reduce?
+			const games = yield* Games;
 			const result = yield* games.list({ page });
 			const players = yield* Players;
 			const allPlayers = yield* players.list({ pageSize: 1000 });
 			const nameOf = buildNameOf(allPlayers.items);
-			const isHx = yield* isPartial;
 
-			return A.Response.asHtml(
-				A.Response.of(
-					respond(
-						isHx,
-						<Scoreboard
-							items={result.items}
-							page={result.page}
-							total={result.total}
-							nameOf={nameOf}
-						/>,
-						(body) => (
-							<Layout title="Scoreboard" active="games">
-								{body}
-							</Layout>
-						),
-					),
-				),
+			const content = yield* renderPage(
+				"Scoreboard",
+				<Scoreboard
+					items={result.items}
+					page={result.page}
+					total={result.total}
+					nameOf={nameOf}
+				/>,
 			);
+			return A.Response.asHtml(A.Response.of(content));
 		}),
 	),
 
@@ -79,26 +68,17 @@ export const gameRoutes = A.Router.from(
 			const playerService = yield* Players;
 			const players = yield* playerService.list({ pageSize: 1000 });
 			const nameOf = buildNameOf(players.items);
-			const isHx = yield* isPartial;
 
-			return A.Response.asHtml(
-				A.Response.of(
-					respond(
-						isHx,
-						<Scoreboard
-							items={result.items}
-							page={result.page}
-							total={result.total}
-							nameOf={nameOf}
-						/>,
-						(body) => (
-							<Layout title="Scoreboard" active="games">
-								{body}
-							</Layout>
-						),
-					),
-				),
+			const content = yield* renderPage(
+				"Scoreboard",
+				<Scoreboard
+					items={result.items}
+					page={result.page}
+					total={result.total}
+					nameOf={nameOf}
+				/>,
 			);
+			return A.Response.asHtml(A.Response.of(content));
 		}),
 	),
 

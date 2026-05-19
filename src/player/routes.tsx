@@ -1,7 +1,6 @@
-import { Effect, pipe, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { Games } from "../game/service";
-import { Layout } from "../shared/layout";
-import { isPartial, respond } from "../shared/routing";
+import { renderPage } from "../shared/page";
 import { PlayerInput } from "./domain";
 import { Players } from "./service";
 import { EditPlayer } from "./views/edit";
@@ -34,10 +33,9 @@ export const playerRoutes = A.Router.from(
 			const page = query.page ? parseInt(query.page, 10) : 1;
 			const players = yield* Players;
 			const result = yield* players.list({ q, page });
-			const isHx = yield* isPartial;
 
-			const temp = respond(
-				isHx,
+			const content = yield* renderPage(
+				"Players",
 				<PlayerList
 					items={result.items}
 					page={result.page}
@@ -45,14 +43,8 @@ export const playerRoutes = A.Router.from(
 					pageSize={result.pageSize}
 					q={q}
 				/>,
-				(body) => (
-					<Layout title="Players" active="players">
-						{body}
-					</Layout>
-				),
 			);
-
-			return A.Response.asHtml(A.Response.of(temp));
+			return A.Response.asHtml(A.Response.of(content));
 		}),
 	),
 
@@ -103,28 +95,16 @@ export const playerRoutes = A.Router.from(
 
 			const result = yield* players.list();
 
-			const isHx = yield* isPartial;
-
-			return A.Response.asHtml(
-				A.Response.created(
-					respond(
-						isHx,
-						<PlayerList
-							items={result.items}
-							page={result.page}
-							total={result.total}
-							pageSize={result.pageSize}
-						/>,
-						(body) => (
-							<Layout title="Players" active="players">
-								{body}
-							</Layout>
-						),
-					),
-				),
+			const content = yield* renderPage(
+				"Players",
+				<PlayerList
+					items={result.items}
+					page={result.page}
+					total={result.total}
+					pageSize={result.pageSize}
+				/>,
 			);
-
-			// return A.Response.redirect("/players"); //TODO redirect better than full page reload??? Discuss with AI.
+			return A.Response.asHtml(A.Response.created(content));
 		}),
 	),
 
@@ -139,17 +119,12 @@ export const playerRoutes = A.Router.from(
 						Effect.fail(A.Response.notFound("Player not found")),
 					),
 				);
-			const isHx = yield* isPartial;
 
-			return A.Response.asHtml(
-				A.Response.success(
-					respond(isHx, <PlayerProfile player={player} />, (body) => (
-						<Layout title={player.name} active="players">
-							{body}
-						</Layout>
-					)),
-				),
+			const content = yield* renderPage(
+				player.name,
+				<PlayerProfile player={player} />,
 			);
+			return A.Response.asHtml(A.Response.success(content));
 		}),
 	),
 
@@ -164,17 +139,12 @@ export const playerRoutes = A.Router.from(
 						Effect.fail(A.Response.notFound("Player not found")),
 					),
 				);
-			const isHx = yield* isPartial;
 
-			return A.Response.asHtml(
-				A.Response.success(
-					respond(isHx, <EditPlayer player={player} />, (body) => (
-						<Layout title={player.name} active="players">
-							{body}
-						</Layout>
-					)),
-				),
+			const content = yield* renderPage(
+				player.name,
+				<EditPlayer player={player} />,
 			);
+			return A.Response.asHtml(A.Response.success(content));
 		}),
 	),
 
@@ -211,17 +181,11 @@ export const playerRoutes = A.Router.from(
 				),
 			);
 
-			const isHx = yield* isPartial;
-
-			return A.Response.asHtml(
-				A.Response.success(
-					respond(isHx, <PlayerProfile player={player} />, (body) => (
-						<Layout title={player.name} active="players">
-							{body}
-						</Layout>
-					)),
-				),
+			const content = yield* renderPage(
+				player.name,
+				<PlayerProfile player={player} />,
 			);
+			return A.Response.asHtml(A.Response.success(content));
 		}),
 	),
 
@@ -238,26 +202,16 @@ export const playerRoutes = A.Router.from(
 				);
 			const result = yield* players.list();
 
-			const isHx = yield* isPartial;
-
-			return A.Response.asHtml(
-				A.Response.success(
-					respond(
-						isHx,
-						<PlayerList
-							items={result.items}
-							page={result.page}
-							total={result.total}
-							pageSize={result.pageSize}
-						/>,
-						(body) => (
-							<Layout title="Players" active="players">
-								{body}
-							</Layout>
-						),
-					),
-				),
+			const content = yield* renderPage(
+				"Players",
+				<PlayerList
+					items={result.items}
+					page={result.page}
+					total={result.total}
+					pageSize={result.pageSize}
+				/>,
 			);
+			return A.Response.asHtml(A.Response.success(content));
 		}),
 	),
 
