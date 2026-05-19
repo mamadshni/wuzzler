@@ -1,8 +1,8 @@
-import { Effect, Schema } from "effect";
+import { Effect, pipe, Schema } from "effect";
 import { Games } from "../game/service";
 import { Layout } from "../shared/layout";
 import { isPartial, respond } from "../shared/routing";
-import { EditPlayerInput, RegisterPlayerInput } from "./domain";
+import { PlayerInput } from "./domain";
 import { Players } from "./service";
 import { EditPlayer } from "./views/edit";
 import { PlayerList } from "./views/list";
@@ -80,7 +80,7 @@ export const playerRoutes = A.Router.from(
 
 	A.path("/players").pipe(
 		A.verb("POST"),
-		A.body(RegisterPlayerInput),
+		A.body(PlayerInput),
 		A.respond(function* ({ body }) {
 			const players = yield* Players;
 			yield* players
@@ -100,7 +100,9 @@ export const playerRoutes = A.Router.from(
 						),
 					),
 				);
+
 			const result = yield* players.list();
+
 			const isHx = yield* isPartial;
 
 			return A.Response.asHtml(
@@ -178,7 +180,7 @@ export const playerRoutes = A.Router.from(
 
 	A.path("/players/:id").pipe(
 		A.verb("PATCH"),
-		A.body(EditPlayerInput),
+		A.body(PlayerInput),
 		A.respond(function* ({ path: { id }, body }) {
 			const players = yield* Players;
 			const player = yield* players.update(id, { name: body.name }).pipe(

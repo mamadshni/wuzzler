@@ -1,97 +1,98 @@
-import {
-	HttpRouter,
-	HttpServerRequest,
-	HttpServerResponse,
-} from "@effect/platform";
-import { Effect } from "effect";
+import { Effect, pipe } from "effect";
 import { Layout } from "../shared/layout";
 import { html } from "../shared/render";
 import { LoginInput } from "./domain";
 import { Auth } from "./service";
 import { LoginForm } from "./views/login";
+import { A } from "andale";
+import { isPartial } from "../shared/routing";
 
-const parseCookie = (
-	cookieHeader: string | undefined,
-	name: string,
-): string | undefined => {
-	if (!cookieHeader) return undefined;
-	const match = cookieHeader
-		.split(";")
-		.map((s) => s.trim())
-		.find((s) => s.startsWith(`${name}=`));
-	return match?.slice(name.length + 1);
-};
-
-const isHtmx = (req: HttpServerRequest.HttpServerRequest) =>
-	req.headers["hx-request"] === "true";
-
-export const userRoutes = HttpRouter.empty.pipe(
-	HttpRouter.get(
-		"/login",
-		html(
-			<Layout title="Log in" active="login">
-				<LoginForm />
-			</Layout>,
-		),
+export const userRoutes = A.Router.from(
+	A.path("/login").pipe(
+		A.verb("GET"),
+		A.respond(function* () {
+			return html(
+				<Layout title="Log in" active="login">
+					<LoginForm />
+				</Layout>,
+			);
+		}),
 	),
 
-	HttpRouter.post(
-		"/sessions",
-		Effect.gen(function* () {
-			const req = yield* HttpServerRequest.HttpServerRequest;
-			const body = yield* HttpServerRequest.schemaBodyUrlParams(LoginInput);
+	A.path("/sessions").pipe(
+		A.verb("POST"),
+		A.body(LoginInput),
+		A.respond(function* ({ body }) {
 			const auth = yield* Auth;
-			const { token } = yield* auth.login(body.email, body.password);
-			const cookie = `session=${token}; HttpOnly; SameSite=Lax; Path=/`;
+			const { token } = yield* auth.login(body.email, body.password).pipe(
+				Effect.catchTag("InvalidCredentials", () =>
+					Effect.fail(
+						A.Response.asHtml(
+							A.Response.of(
+								<Layout title="Log in" active="login">
+									<LoginForm error="Invalid email or password" />
+								</Layout>,
+								{ status: 401 },
+							),
+						),
+					),
+				),
+			);
 
-			if (isHtmx(req)) {
-				return HttpServerResponse.empty({ status: 200 }).pipe(
-					HttpServerResponse.setHeader("Set-Cookie", cookie),
-					HttpServerResponse.setHeader("HX-Redirect", "/players"),
+			const cookie = `session=${token}; HttpOnly; SameSite=Lax; Path=/`;
+			const isHx = yield* isPartial;
+
+			if (isHx) {
+				return A.Response.success(
+					{},
+					{ headers: { "Set-Cookie": cookie, "HX-Redirect": "/players" } },
 				);
 			}
-			return HttpServerResponse.empty({ status: 303 }).pipe(
-				HttpServerResponse.setHeader("Set-Cookie", cookie),
-				HttpServerResponse.setHeader("Location", "/players"),
+			return A.Response.of(
+				{},
+				{
+					headers: { "Set-Cookie": cookie, "HX-Redirect": "/players" },
+					status: 303,
+				},
 			);
-		}).pipe(
-			Effect.catchTag("InvalidCredentials", () =>
-				html(
-					<Layout title="Log in" active="login">
-						<LoginForm error="Invalid email or password" />
-					</Layout>,
-				).pipe(HttpServerResponse.setStatus(401)),
-			),
-			Effect.catchTag("ParseError", () =>
-				html(
-					<Layout title="Log in" active="login">
-						<LoginForm error="Please fill in all fields" />
-					</Layout>,
-				).pipe(HttpServerResponse.setStatus(422)),
-			),
-		),
+		}),
 	),
 
-	HttpRouter.del(
-		"/sessions/current",
-		Effect.gen(function* () {
-			const req = yield* HttpServerRequest.HttpServerRequest;
-			const token = parseCookie(req.headers.cookie, "session");
+	A.path("/sessions/current").pipe(
+		A.verb("DELETE"),
+		A.respond(function* () {
+			const token = yield* pipe(
+				A.Request.cookie("session"),
+				Effect.catchTag("NoSuchElementException", () =>
+					Effect.fail(A.Response.notFound("Invalid session")),
+				),
+				Effect.catchTag("ParseError", () =>
+					Effect.fail(A.Response.badRequest("Invalid session format")),
+				),
+			);
+			// const cookie = A.Cookie.get("session");// TODO which one is correct? - Katja
+
 			if (token) {
 				const auth = yield* Auth;
 				yield* auth.logout(token);
 			}
+
 			const clearCookie = "session=; Path=/; Max-Age=0";
 
-			if (isHtmx(req)) {
-				return HttpServerResponse.empty({ status: 200 }).pipe(
-					HttpServerResponse.setHeader("Set-Cookie", clearCookie),
-					HttpServerResponse.setHeader("HX-Redirect", "/login"),
+			const isHx = yield* isPartial;
+
+			if (isHx) {
+				return A.Response.success(
+					{},
+					{ headers: { "Set-Cookie": clearCookie, "HX-Redirect": "/login" } },
 				);
 			}
-			return HttpServerResponse.empty({ status: 303 }).pipe(
-				HttpServerResponse.setHeader("Set-Cookie", clearCookie),
-				HttpServerResponse.setHeader("Location", "/login"),
+			return A.Response.of(
+				{},
+				{
+					status: 303,
+					headers: { "Set-Cookie": clearCookie, Location: "/login" },
+				},
 			);
 		}),
 	),

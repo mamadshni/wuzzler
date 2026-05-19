@@ -14,5 +14,12 @@
 				"useYield": "off"
 			}
 		}
-	}
+	},
+	"assist": {
+    	"actions": {
+      		"source": {
+        		"organizeImports": "off"
+      		}
+   	 	}
+  }
 }

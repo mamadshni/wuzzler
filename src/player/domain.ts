@@ -4,7 +4,7 @@ export const PlayerId = Schema.String.pipe(Schema.brand("PlayerId"));
 export type PlayerId = typeof PlayerId.Type;
 
 export const PlayerName = Schema.String.pipe(
-	Schema.minLength(1),
+	Schema.minLength(5),
 	Schema.maxLength(40),
 );
 
@@ -13,8 +13,7 @@ export class Player extends Schema.Class<Player>("Player")({
 	name: PlayerName,
 }) {}
 
-export const RegisterPlayerInput = Schema.Struct({ name: PlayerName });
-export const EditPlayerInput = Schema.Struct({ name: PlayerName });
+export const PlayerInput = Schema.Struct({ name: PlayerName });
 
 export class PlayerNotFound extends Schema.TaggedError<PlayerNotFound>()(
 	"PlayerNotFound",

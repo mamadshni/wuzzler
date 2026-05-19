@@ -4,6 +4,7 @@ import { A } from "andale";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { gameRoutes } from "./game/routes";
+import { userRoutes } from "./user/routes";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const publicDir = resolve(__dirname, "../public");
@@ -42,5 +43,5 @@ export const router = A.Router.from(
 	...staticRoutes.routes,
 	...playerRoutes.routes,
 	...gameRoutes.routes,
-	// ...userRoutes.routes,
+	...userRoutes.routes,
 );

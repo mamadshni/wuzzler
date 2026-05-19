@@ -19,6 +19,6 @@ export const LoginInput = Schema.Struct({
 });
 
 export class InvalidCredentials extends Schema.TaggedError<InvalidCredentials>()(
-	"InvalidCredentials",
+		 "InvalidCredentials",
 	{},
 ) {}

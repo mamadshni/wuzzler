@@ -19,11 +19,13 @@ type PlayerListResult = {
 
 type PlayerRow = typeof schema.players.$inferSelect;
 
-const toPlayer = (row: PlayerRow): Player =>
-	new Player({
+const toPlayer = (row: PlayerRow): Player => {
+return new Player({
 		id: PlayerId.make(row.id),
 		name: Schema.decodeSync(PlayerName)(row.name),
 	});
+}
+	
 
 const isUniqueViolation = (e: unknown): boolean =>
 	e instanceof Error &&
@@ -96,14 +98,19 @@ export const PlayersLive = Layer.effect(
 			create: (input) =>
 				Effect.gen(function* () {
 					const id = PlayerId.make(crypto.randomUUID());
+					console.log("1")
 					try {
+
+						console.log("2")
 						db.insert(schema.players).values({ id, name: input.name }).run();
+						console.log("new player created" + input.name)
 					} catch (e) {
 						if (isUniqueViolation(e)) {
 							return yield* new DuplicatePlayerName({ name: input.name });
 						}
 						throw e;
 					}
+					console.log(input.name)
 					return toPlayer({ id, name: input.name });
 				}),
 

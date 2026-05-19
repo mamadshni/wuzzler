@@ -25,7 +25,7 @@ export class Auth extends Context.Tag("Auth")<
 		readonly login: (
 			email: string,
 			password: string,
-		) => Effect.Effect<{ token: string; user: User }, InvalidCredentials>;
+		) => Effect.Effect<{ token: string, user: User }, InvalidCredentials>;
 		readonly verify: (token: string) => Effect.Effect<User, InvalidCredentials>;
 		readonly logout: (token: string) => Effect.Effect<void>;
 	}
